@@ -13,20 +13,23 @@ int pos = 0;    // variable to store the servo position
 // Recommended PWM GPIO pins on the ESP32 include 2,4,12-19,21-23,25-27,32-33 
 #define servoPin 18
 int lSensor = 4;
+int blue = 2;
 
 String flags = "00000000";
-int heartBeatInt = 60; //default heartbeat 1 minute
+int heartBeatInt = 60 * 5; //default heartbeat 1 minute
+unsigned long int hbCount = 0; // remove before actually releasing the product
 unsigned long int lastHB = 0;
 int on = 0;
 int off = 0;
 
-const char* ssid = "Kelley House";
-const char* password = "littletrain101";
+const char* devID = "1234";
+const char* ssid = "StorageDefender";
+const char* password = "BigRockCandy1";
 
 const char *mqtt_broker = "sensorxperience.com";
-const char *upTopic = "esp32/uplink";
-const char *downTopic = "esp32/downlink";
-const char *mqtt_username = "user";
+const char *upTopic = "esp32/uplink/1";
+const char *downTopic = "esp32/downlink/1";
+const char *mqtt_username = "admin";
 const char *mqtt_password = "password";
 const int mqtt_port = 1883;
 
@@ -46,10 +49,12 @@ void setup() {
 	myservo.attach(servoPin, 500, 2400); // attaches the servo on pin 18 to the servo object
   myservo.write(0);
   Serial.begin(115200);
-
+  pinMode(blue, OUTPUT);
+  digitalWrite(blue, LOW);
   WifiConnect();
   configTime(0, 0, "pool.ntp.org");
   pinMode(lSensor, INPUT);
+  
 
 	// using default min/max of 1000us and 2000us
 	// different servos may require different min/max settings
@@ -63,8 +68,10 @@ void WifiConnect(){
     Serial.println("\nConnecting");
 
     while(WiFi.status() != WL_CONNECTED){
-        Serial.print(".");
-        delay(100);
+        digitalWrite(blue, HIGH);
+        delay(250);
+        digitalWrite(blue, LOW);
+        delay(250);
     }
 
     Serial.println("\nConnected to the WiFi network");
@@ -73,8 +80,7 @@ void WifiConnect(){
     client.setServer(mqtt_broker, mqtt_port);
     client.setCallback(callback);
     while (!client.connected()) {
-        String client_id = "esp32-client-";
-        client_id += String(WiFi.macAddress());
+        String client_id = devID;
         Serial.printf("The client %s connecting to mqtt broker\n", client_id.c_str());
         if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
             Serial.println("Connected to SensorXperience");
@@ -204,7 +210,9 @@ void loop() {
     Serial.println(analogRead(lSensor));
   }
   if (flags[3] == '1') {
-    String packetStr = "{\"deviceID\": \""+ WiFi.macAddress() +"\", \"timestamp\": \""+ getTime() +"\"}";
+    hbCount++;
+    String deviceID = devID;
+    String packetStr = "{\"deviceID\": \""+ deviceID +"\", \"timestamp\": \""+ getTime() +"\", \"count\": \""+ hbCount +"\"}";
 
     const char* packet = packetStr.c_str(); 
     //Serial.println(packet);
